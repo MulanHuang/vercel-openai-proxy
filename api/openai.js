@@ -1,7 +1,5 @@
-// 最新版 OpenAI Responses API 代理（微信小程序兼容版）
-
 export default async function handler(req, res) {
-  // ① 处理 OPTIONS
+  // CORS
   if (req.method === "OPTIONS") {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -9,30 +7,26 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // ② 限制只允许 POST
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // ③ 解析 body
-  const { model, input, max_output_tokens, stream } = req.body;
-
-  if (!input) {
-    return res.status(400).json({
-      error: "Missing required field: input",
-    });
-  }
+  const { model, messages, max_output_tokens = 300, stream = false } = req.body;
 
   try {
-    // ④ 构建请求体
+    // ⭐ 关键：messages → input（Responses API 结构）
+    const input = (messages || []).map(m => ({
+      role: m.role,
+      content: m.content
+    }));
+
     const body = {
       model: model || "gpt-5-mini",
-      input, // ✔ 使用前端传来的 input
-      max_output_tokens: max_output_tokens || 300,
-      stream: stream === true,
+      input,
+      max_output_tokens,
+      stream,
     };
 
-    // ⑤ 调用 OpenAI Responses API
     const openaiResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -44,17 +38,14 @@ export default async function handler(req, res) {
 
     res.setHeader("Access-Control-Allow-Origin", "*");
 
-    // ⑥ 非流式
+    // 非流式
     if (!stream) {
       const data = await openaiResponse.json();
-      return res.status(200).json(data);
+      return res.status(openaiResponse.status).json(data);
     }
 
-    // ⑦ 流式 SSE
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache, no-transform");
-    res.setHeader("Connection", "keep-alive");
-
+    // 流式
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     const reader = openaiResponse.body.getReader();
     const decoder = new TextDecoder();
 
@@ -65,8 +56,7 @@ export default async function handler(req, res) {
     }
 
     res.end();
-  } catch (err) {
-    console.error("代理错误:", err);
-    res.status(500).json({ error: err.message || "服务器错误" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 }
