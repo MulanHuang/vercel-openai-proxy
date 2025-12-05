@@ -18,7 +18,7 @@ export default async function handler(req, res) {
         model: model || "gpt-5-mini",
         messages,
         temperature: temperature || 1,
-        max_completion_tokens: max_completion_tokens || 1000,
+        max_completion_tokens: max_completion_tokens || 4000,
       }),
     });
 
