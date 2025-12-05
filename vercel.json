@@ -2,12 +2,12 @@
   "version": 2,
   "routes": [
     {
-      "src": "/api/(.*)",
+      "src": "/api/openai",
       "dest": "/api/openai.js",
-      "methods": ["GET", "POST", "OPTIONS"],
+      "methods": ["POST", "OPTIONS"],
       "headers": {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization"
       }
     }
