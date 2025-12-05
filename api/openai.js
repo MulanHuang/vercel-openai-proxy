@@ -4,7 +4,7 @@
 
 export default async function handler(req, res) {
   // ---------------------------
-  // ① 处理微信小程序 OPTIONS 预检
+  // ① 处理微信小程序 OPTIONS 预检请求
   // ---------------------------
   if (req.method === "OPTIONS") {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -27,11 +27,11 @@ export default async function handler(req, res) {
 
   try {
     // ---------------------------
-    // ④ 构建 Responses API body
+    // ④ 构建 Responses API 请求体
     // ---------------------------
     const body = {
       model: model || "gpt-5-mini",
-      input: messages, // ⚠️ Responses API 使用 input
+      input: messages, // Responses API 使用 input
       max_output_tokens: max_output_tokens || 300,
       stream: stream === true,
     };
@@ -49,9 +49,11 @@ export default async function handler(req, res) {
     });
 
     // ---------------------------
-    // ⑥ 小程序 CORS 允许返回
+    // ⑥ 统一设置 CORS（非常关键）
     // ---------------------------
     res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     // ---------------------------
     // ⑦ 非流式 → 返回 JSON
