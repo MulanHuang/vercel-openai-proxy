@@ -1,11 +1,7 @@
-// 最新版 OpenAI Responses API 代理（微信小程序完全兼容版）
-// 支持 max_output_tokens + 流式 + 非流式
-// Vercel Serverless Function
+// 最新版 OpenAI Responses API 代理（微信小程序兼容版）
 
 export default async function handler(req, res) {
-  // ---------------------------
-  // ① 处理微信小程序 OPTIONS 预检请求
-  // ---------------------------
+  // ① 处理 OPTIONS
   if (req.method === "OPTIONS") {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -13,32 +9,30 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // ---------------------------
   // ② 限制只允许 POST
-  // ---------------------------
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // ---------------------------
-  // ③ 解析请求 body
-  // ---------------------------
-  const { model, messages, max_output_tokens, stream } = req.body;
+  // ③ 解析 body
+  const { model, input, max_output_tokens, stream } = req.body;
+
+  if (!input) {
+    return res.status(400).json({
+      error: "Missing required field: input",
+    });
+  }
 
   try {
-    // ---------------------------
-    // ④ 构建 Responses API 请求体
-    // ---------------------------
+    // ④ 构建请求体
     const body = {
       model: model || "gpt-5-mini",
-      input: messages, // Responses API 使用 input
+      input, // ✔ 使用前端传来的 input
       max_output_tokens: max_output_tokens || 300,
       stream: stream === true,
     };
 
-    // ---------------------------
     // ⑤ 调用 OpenAI Responses API
-    // ---------------------------
     const openaiResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -48,25 +42,16 @@ export default async function handler(req, res) {
       body: JSON.stringify(body),
     });
 
-    // ---------------------------
-    // ⑥ 统一设置 CORS（非常关键）
-    // ---------------------------
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-    // ---------------------------
-    // ⑦ 非流式 → 返回 JSON
-    // ---------------------------
+    // ⑥ 非流式
     if (!stream) {
       const data = await openaiResponse.json();
       return res.status(200).json(data);
     }
 
-    // ---------------------------
-    // ⑧ 流式 SSE 输出
-    // ---------------------------
-    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    // ⑦ 流式 SSE
+    res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
 
@@ -76,14 +61,12 @@ export default async function handler(req, res) {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-
-      const chunk = decoder.decode(value);
-      res.write(chunk);
+      res.write(decoder.decode(value));
     }
 
     res.end();
-  } catch (error) {
-    console.error("代理错误:", error);
-    res.status(500).json({ error: error.message || "服务器错误" });
+  } catch (err) {
+    console.error("代理错误:", err);
+    res.status(500).json({ error: err.message || "服务器错误" });
   }
 }
