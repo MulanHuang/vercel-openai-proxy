@@ -38,13 +38,16 @@ export default async function handler(req, res) {
 
     res.setHeader("Access-Control-Allow-Origin", "*");
 
-    // 非流式
+    // ⭐⭐⭐ 非流式：这里加入日志输出（你必须看到这个数据才能继续修复）
     if (!stream) {
       const data = await openaiResponse.json();
+
+      console.log("🔥 OPENAI RAW:", data);   // ← 日志打印 OpenAI 原始返回（关键！）
+
       return res.status(openaiResponse.status).json(data);
     }
 
-    // 流式
+    // 流式模式
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     const reader = openaiResponse.body.getReader();
     const decoder = new TextDecoder();
@@ -57,6 +60,7 @@ export default async function handler(req, res) {
 
     res.end();
   } catch (error) {
+    console.error("🔥 SERVER ERROR:", error);
     res.status(500).json({ error: error.message });
   }
 }
