@@ -15,7 +15,7 @@ export default async function handler(req, res) {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, // 环境变量
       },
       body: JSON.stringify({
-        model: model || "gpt-4o-mini",
+        model: model || "gpt-5-mini",
         messages,
         temperature: temperature || 1,
         max_completion_tokens: max_completion_tokens || 1000,
