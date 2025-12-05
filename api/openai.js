@@ -1,22 +1,44 @@
-// 最新版 OpenAI Responses API 代理 (支持流式 + 非流式)
+// 最新版 OpenAI Responses API 代理（微信小程序完全兼容版）
+// 支持 max_output_tokens + 流式 + 非流式
 // Vercel Serverless Function
 
 export default async function handler(req, res) {
+  // ---------------------------
+  // ① 处理微信小程序 OPTIONS 预检
+  // ---------------------------
+  if (req.method === "OPTIONS") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    return res.status(200).end();
+  }
+
+  // ---------------------------
+  // ② 限制只允许 POST
+  // ---------------------------
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  // ---------------------------
+  // ③ 解析请求 body
+  // ---------------------------
   const { model, messages, max_output_tokens, stream } = req.body;
 
   try {
-    // 构建请求 body —— 使用 Responses API
+    // ---------------------------
+    // ④ 构建 Responses API body
+    // ---------------------------
     const body = {
       model: model || "gpt-5-mini",
-      input: messages, // Responses API 用 input，而不是 messages
+      input: messages, // ⚠️ Responses API 使用 input
       max_output_tokens: max_output_tokens || 300,
-      stream: stream === true ? true : false,
+      stream: stream === true,
     };
 
+    // ---------------------------
+    // ⑤ 调用 OpenAI Responses API
+    // ---------------------------
     const openaiResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -26,14 +48,21 @@ export default async function handler(req, res) {
       body: JSON.stringify(body),
     });
 
-    // 如果客户端不要求流式，直接返回 JSON
+    // ---------------------------
+    // ⑥ 小程序 CORS 允许返回
+    // ---------------------------
+    res.setHeader("Access-Control-Allow-Origin", "*");
+
+    // ---------------------------
+    // ⑦ 非流式 → 返回 JSON
+    // ---------------------------
     if (!stream) {
       const data = await openaiResponse.json();
       return res.status(200).json(data);
     }
 
     // ---------------------------
-    //  流式输出 (SSE)
+    // ⑧ 流式 SSE 输出
     // ---------------------------
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -45,8 +74,8 @@ export default async function handler(req, res) {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      const chunk = decoder.decode(value);
 
+      const chunk = decoder.decode(value);
       res.write(chunk);
     }
 
