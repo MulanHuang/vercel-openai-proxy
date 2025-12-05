@@ -1,66 +1,32 @@
+// Vercel Serverless Function
 export default async function handler(req, res) {
-  // CORS
-  if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    return res.status(200).end();
-  }
-
+  // 只允许 POST
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { model, messages, max_output_tokens = 300, stream = false } = req.body;
+  const { model, messages, temperature, max_completion_tokens } = req.body;
 
   try {
-    // ⭐ 关键：messages → input（Responses API 结构）
-    const input = (messages || []).map(m => ({
-      role: m.role,
-      content: m.content
-    }));
-
-    const body = {
-      model: model || "gpt-5-mini",
-      input,
-      max_output_tokens,
-      stream,
-    };
-
-    const openaiResponse = await fetch("https://api.openai.com/v1/responses", {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, // 环境变量
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        model: model || "gpt-4o-mini",
+        messages,
+        temperature: temperature || 0.6,
+        max_completion_tokens: max_completion_tokens || 300,
+      }),
     });
 
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    const data = await response.json();
 
-    // ⭐⭐⭐ 非流式：这里加入日志输出（你必须看到这个数据才能继续修复）
-    if (!stream) {
-      const data = await openaiResponse.json();
-
-      console.log("🔥 OPENAI RAW:", data);   // ← 日志打印 OpenAI 原始返回（关键！）
-
-      return res.status(openaiResponse.status).json(data);
-    }
-
-    // 流式模式
-    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-    const reader = openaiResponse.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(decoder.decode(value));
-    }
-
-    res.end();
+    // 返回 OpenAI 原始格式
+    res.status(200).json(data);
   } catch (error) {
-    console.error("🔥 SERVER ERROR:", error);
     res.status(500).json({ error: error.message });
   }
 }
